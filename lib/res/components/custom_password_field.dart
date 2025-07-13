@@ -24,7 +24,7 @@ class CustomPasswordField extends StatefulWidget {
     this.onSubmitted,
     this.padding,
     this.margin,
-    this.height = ResponsiveSizeUtil.size60,
+    this.height,
     this.width = double.infinity,
   });
 
@@ -38,7 +38,7 @@ class _CustomPasswordFieldState extends State<CustomPasswordField> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: widget.height,
+      height: widget.height ?? ResponsiveSizeUtil.size60,
       width: widget.width,
       margin: widget.margin,
       decoration: BoxDecoration(
