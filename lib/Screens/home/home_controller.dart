@@ -1,5 +1,6 @@
 import 'dart:developer';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show ByteData, Uint8List, rootBundle;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
@@ -21,6 +22,8 @@ class MapControllerState {
   final PointAnnotationManager? pointAnnotationManager;
   final PolygonAnnotationManager? polygonAnnotationManager;
   final Map<String, VenueDetails> annotationDetails;
+  final Map<MarkerType, List<Map<String, dynamic>>> points;
+  final Map<MarkerType, List<VenueDetails>> details;
   final String mapType;
 
   MapControllerState({
@@ -28,6 +31,16 @@ class MapControllerState {
     this.pointAnnotationManager,
     this.polygonAnnotationManager,
     this.annotationDetails = const {},
+    this.points = const {
+      MarkerType.parties: [],
+      MarkerType.bars: [],
+      MarkerType.restaurants: [],
+    },
+    this.details = const {
+      MarkerType.parties: [],
+      MarkerType.bars: [],
+      MarkerType.restaurants: [],
+    },
     this.mapType = "Dark",
   });
 
@@ -36,6 +49,8 @@ class MapControllerState {
     PointAnnotationManager? pointAnnotationManager,
     PolygonAnnotationManager? polygonAnnotationManager,
     Map<String, VenueDetails>? annotationDetails,
+    Map<MarkerType, List<Map<String, dynamic>>>? points,
+    Map<MarkerType, List<VenueDetails>>? details,
     String? mapType,
   }) {
     return MapControllerState(
@@ -45,6 +60,8 @@ class MapControllerState {
       polygonAnnotationManager:
           polygonAnnotationManager ?? this.polygonAnnotationManager,
       annotationDetails: annotationDetails ?? this.annotationDetails,
+      points: points ?? this.points,
+      details: details ?? this.details,
       mapType: mapType ?? this.mapType,
     );
   }
@@ -53,6 +70,8 @@ class MapControllerState {
 class MapControllerNotifier extends StateNotifier<MapControllerState> {
   final Ref ref;
   final _api = MarkersRepository();
+  final TextEditingController searchController = TextEditingController();
+  final FocusNode searchFocusNode = FocusNode();
 
   MapControllerNotifier(this.ref) : super(MapControllerState()) {
     ref.listen(dashboardProvider.select((s) => s.selectedMarkers), (
@@ -62,6 +81,9 @@ class MapControllerNotifier extends StateNotifier<MapControllerState> {
       updateMarkers();
     });
   }
+
+  // Public getter for annotationDetails
+  Map<String, VenueDetails> get annotationDetails => state.annotationDetails;
 
   Future<void> onMapCreated(MapboxMap mapboxMap) async {
     final pointManager = await mapboxMap.annotations
@@ -77,17 +99,7 @@ class MapControllerNotifier extends StateNotifier<MapControllerState> {
 
     await _addDummyPolygons();
     await updateMarkers();
-
-    // Fix: Use correct listener signature without casting
-    pointManager.addOnPointAnnotationClickListener((
-      PointAnnotation annotation,
-    ) {
-      final venue = state.annotationDetails[annotation.id];
-      if (venue != null) {
-        ref.read(selectedVenueProvider.notifier).state = venue;
-        log("Selected Venue: ${venue.name}");
-      }
-    } as OnPointAnnotationClickListener);
+    _setupPointAnnotationListener();
   }
 
   void updateMapType(String newType) {
@@ -102,12 +114,26 @@ class MapControllerNotifier extends StateNotifier<MapControllerState> {
 
     try {
       final response = await _api.getMarkers();
+      log("API Response: $response");
+
+      // Clear existing annotations
       await state.pointAnnotationManager?.deleteAll();
       final Map<String, VenueDetails> annotationsMap = {};
+      final Map<MarkerType, List<Map<String, dynamic>>> points = {
+        MarkerType.parties: [],
+        MarkerType.bars: [],
+        MarkerType.restaurants: [],
+      };
+      final Map<MarkerType, List<VenueDetails>> details = {
+        MarkerType.parties: [],
+        MarkerType.bars: [],
+        MarkerType.restaurants: [],
+      };
 
       double avgLat = 0, avgLng = 0;
       int count = 0;
 
+      // Process API response
       for (final marker in response) {
         final type = _getTypeFromString(marker['markerType']);
         if (selectedTypes.isNotEmpty && !selectedTypes.contains(type)) continue;
@@ -136,6 +162,12 @@ class MapControllerNotifier extends StateNotifier<MapControllerState> {
               .toList(),
         );
 
+        points[type]!.add({
+          'type': 'Point',
+          'coordinates': [lng, lat],
+        });
+        details[type]!.add(detail);
+
         final annotation = await state.pointAnnotationManager?.create(
           PointAnnotationOptions(
             geometry: Point(coordinates: Position(lng, lat)),
@@ -143,7 +175,8 @@ class MapControllerNotifier extends StateNotifier<MapControllerState> {
             textField: detail.name,
             textSize: 14,
             textColor: AppColor.whiteColor.value,
-            textHaloColor: AppColor.primaryColor.value,
+            textHaloColor:
+                AppColor.primaryColor.value, // Use Color object directly
             textHaloWidth: 5.0,
             textHaloBlur: 5.0,
             textOffset: [0.0, 1.5],
@@ -159,14 +192,24 @@ class MapControllerNotifier extends StateNotifier<MapControllerState> {
         count++;
       }
 
-      state = state.copyWith(annotationDetails: annotationsMap);
+      state = state.copyWith(
+        annotationDetails: annotationsMap,
+        points: points,
+        details: details,
+      );
+
       if (count > 0) {
         avgLat /= count;
         avgLng /= count;
-        updateCamera(avgLat, avgLng, 16);
+        await updateCamera(avgLat, avgLng, 16);
+        if (kDebugMode) {
+          print(
+            '<=====================Latitude: $avgLat , Longitude: $avgLng =====================>',
+          );
+        }
       }
     } catch (e) {
-      if (kDebugMode) print("Marker Update Error: \$e");
+      if (kDebugMode) print("Marker Update Error: $e");
     }
   }
 
@@ -174,10 +217,10 @@ class MapControllerNotifier extends StateNotifier<MapControllerState> {
     final camera = CameraOptions(
       center: Point(coordinates: Position(lng, lat)),
       zoom: zoom,
-      pitch: 75,
+      pitch: 75.0, // Set to 0 to avoid shader issues
     );
     final animation = MapAnimationOptions(duration: 1000);
-    state.mapboxMap?.flyTo(camera, animation);
+    await state.mapboxMap?.flyTo(camera, animation);
   }
 
   MarkerType _getTypeFromString(String value) {
@@ -199,32 +242,91 @@ class MapControllerNotifier extends StateNotifier<MapControllerState> {
     final dummyPolygons = [
       {
         "coordinates": [
-          Position(-115.1249, 36.1288),
-          Position(-115.1259, 36.1288),
-          Position(-115.1259, 36.1278),
-          Position(-115.1249, 36.1278),
-          Position(-115.1249, 36.1288),
+          [
+            Position(-115.1249, 36.1288),
+            Position(-115.1259, 36.1288),
+            Position(-115.1259, 36.1278),
+            Position(-115.1249, 36.1278),
+            Position(-115.1249, 36.1288),
+          ],
         ],
-        "fillColor": 0xFF0000FF,
+        "fillColor": Colors.blue, // Use Color object
         "fillOpacity": 0.5,
-        "fillOutlineColor": 0xFF000000,
+        "fillOutlineColor": Colors.black, // Use Color object
+      },
+      {
+        "coordinates": [
+          [
+            Position(-115.1239, 36.1298),
+            Position(-115.1249, 36.1298),
+            Position(-115.1249, 36.1288),
+            Position(-115.1239, 36.1288),
+            Position(-115.1239, 36.1298),
+          ],
+        ],
+        "fillColor": Colors.green, // Use Color object
+        "fillOpacity": 0.3,
+        "fillOutlineColor": Colors.red, // Use Color object
       },
     ];
 
     for (final polygonData in dummyPolygons) {
       final geometry = Polygon(
-        coordinates: [polygonData["coordinates"] as List<Position>],
+        coordinates: polygonData["coordinates"] as List<List<Position>>,
       );
       final options = PolygonAnnotationOptions(
         geometry: geometry,
-        fillColor: polygonData["fillColor"] as int?,
-        fillOpacity: polygonData["fillOpacity"] as double?,
-        fillOutlineColor: polygonData["fillOutlineColor"] as int?,
+        fillColor: (polygonData["fillColor"] as Color).value, // Convert to int
+        fillOpacity: polygonData["fillOpacity"] as double,
+        fillOutlineColor:
+            (polygonData["fillOutlineColor"] as Color).value, // Convert to int
       );
       try {
         await state.polygonAnnotationManager?.create(options);
       } catch (e) {
-        if (kDebugMode) print("Polygon Error: \$e");
+        if (kDebugMode) print("Polygon Error: $e");
+      }
+    }
+  }
+
+  void _setupPointAnnotationListener() {
+    state.pointAnnotationManager?.addOnPointAnnotationClickListener(
+      MyAnnotationClickListener(this),
+    );
+  }
+
+  void selectVenue(VenueDetails details) {
+    ref.read(selectedVenueProvider.notifier).state = details;
+  }
+
+  @override
+  void dispose() {
+    searchController.dispose();
+    searchFocusNode.dispose();
+    super.dispose();
+  }
+}
+
+class MyAnnotationClickListener implements OnPointAnnotationClickListener {
+  final MapControllerNotifier controller;
+
+  MyAnnotationClickListener(this.controller);
+
+  @override
+  void onPointAnnotationClick(PointAnnotation annotation) {
+    final details = controller.annotationDetails[annotation.id];
+    if (details == null) {
+      log("No details found for annotation ID: ${annotation.id}");
+      return;
+    }
+
+    log("Clicked on annotation: ${details.name}");
+
+    if (details.type == MarkerType.parties) {
+      controller.selectVenue(details);
+    } else {
+      if (kDebugMode) {
+        print("Clicked on a non-party marker: ${details.name}");
       }
     }
   }

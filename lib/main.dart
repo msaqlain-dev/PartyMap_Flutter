@@ -9,7 +9,7 @@ void main() {
 
   // Set Mapbox access token
   MapboxOptions.setAccessToken(
-    'sk.eyJ1IjoicGFydHltYXAiLCJhIjoiY20wa3hhZnRsMTZ2MzJqc2x4ZmlnYTZrZCJ9',
+    'sk.eyJ1IjoicGFydHltYXAiLCJhIjoiY20wa3hhZnRsMTZ2MzJqc2x4ZmlnYTZrZCJ9.xfMKMVT6UkBcVm32KYH53w',
   );
 
   runApp(const ProviderScope(child: MyApp()));
