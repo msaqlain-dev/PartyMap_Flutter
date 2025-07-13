@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:mapbox_maps_flutter/mapbox_maps_flutter.dart';
 import 'package:partymap_app/Screens/home/home_controller.dart';
 import 'package:partymap_app/Screens/home/widgets/location_search_widget.dart';
@@ -58,8 +59,7 @@ class HomeScreen extends ConsumerWidget {
                   color: AppColor.whiteColor,
                   weight: 10,
                 ),
-                onPressed: () =>
-                    Navigator.pushNamed(context, RouteName.loginScreen),
+                onPressed: () => context.push(RouteName.loginScreen),
               ),
             ),
 
@@ -86,7 +86,11 @@ class HomeScreen extends ConsumerWidget {
               bottom: ResponsiveSizeUtil.size20,
               left: ResponsiveSizeUtil.size72,
               right: ResponsiveSizeUtil.size20,
-              child: SizedBox(height: 200, child: LocationSearchWidget()),
+              child: SizedBox(
+                height: ResponsiveSizeUtil
+                    .size200, // Increased to accommodate scrolling
+                child: LocationSearchWidget(),
+              ),
             ),
 
             // Venue Detail Bottom Sheet

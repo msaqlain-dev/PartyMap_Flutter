@@ -14,16 +14,21 @@ class LocationSearchWidget extends ConsumerWidget {
     final controller = ref.read(locationSearchProvider.notifier);
     final mapController = ref.read(mapControllerProvider.notifier);
 
-    return Column(
-      children: [
-        if (state.showSuggestions)
-          Expanded(
-            child: Container(
+    return SingleChildScrollView(
+      child: Column(
+        children: [
+          if (state.showSuggestions)
+            Container(
+              constraints: BoxConstraints(
+                maxHeight: 160,
+              ), // Cap suggestion list height
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(20),
                 color: AppColor.lightColor,
               ),
               child: ListView.builder(
+                shrinkWrap:
+                    true, // Prevent ListView from taking infinite height
                 itemCount: state.suggestions.length,
                 itemBuilder: (context, index) {
                   return ListTile(
@@ -38,41 +43,41 @@ class LocationSearchWidget extends ConsumerWidget {
                   );
                 },
               ),
+            )
+          else
+            const SizedBox(height: 160),
+          Container(
+            height: ResponsiveSizeUtil.size40,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(ResponsiveSizeUtil.size10),
+              color: const Color(0xFFF0F0F0),
             ),
-          )
-        else
-          const SizedBox(height: 160),
-        Container(
-          height: ResponsiveSizeUtil.size40,
-          width: double.infinity,
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(ResponsiveSizeUtil.size10),
-            color: const Color(0xFFF0F0F0),
-          ),
-          child: Padding(
-            padding: EdgeInsets.symmetric(
-              horizontal: ResponsiveSizeUtil.size3,
-              vertical: ResponsiveSizeUtil.size7,
-            ),
-            child: TextFormField(
-              onChanged: controller.searchLocation,
-              style: TextStyle(
-                fontSize: ResponsiveSizeUtil.size15,
-                color: AppColor.blackColor,
+            child: Padding(
+              padding: EdgeInsets.symmetric(
+                horizontal: ResponsiveSizeUtil.size3,
+                vertical: ResponsiveSizeUtil.size7,
               ),
-              decoration: InputDecoration(
-                border: InputBorder.none,
-                prefixIcon: Icon(
-                  Icons.search,
-                  color: AppColor.primaryColor,
-                  size: 24,
+              child: TextFormField(
+                onChanged: controller.searchLocation,
+                style: TextStyle(
+                  fontSize: ResponsiveSizeUtil.size15,
+                  color: AppColor.blackColor,
                 ),
-                hintText: 'Search',
+                decoration: InputDecoration(
+                  border: InputBorder.none,
+                  prefixIcon: Icon(
+                    Icons.search,
+                    color: AppColor.primaryColor,
+                    size: 24,
+                  ),
+                  hintText: 'Search',
+                ),
               ),
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

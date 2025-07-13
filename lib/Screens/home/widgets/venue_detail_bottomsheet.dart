@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:partymap_app/Screens/home/home_controller.dart';
 import 'package:partymap_app/Screens/home/widgets/venue_details.dart';
 import 'package:partymap_app/res/colors/app_color.dart';
@@ -33,7 +34,7 @@ class _VenueDetailBottomSheetState
             alignment: Alignment.center,
             children: [
               GestureDetector(
-                onTap: () => Navigator.pop(context),
+                onTap: () => context.pop(),
                 child: Container(
                   color: Colors.black54,
                   child: Image.network(
@@ -52,7 +53,7 @@ class _VenueDetailBottomSheetState
                 right: 5,
                 child: IconButton(
                   icon: const Icon(Icons.close, color: Colors.white),
-                  onPressed: () => Navigator.pop(context),
+                  onPressed: () => context.pop(),
                 ),
               ),
             ],

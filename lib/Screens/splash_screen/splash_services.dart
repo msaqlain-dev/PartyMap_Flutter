@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:partymap_app/res/navigators/routes_name.dart';
 import 'package:partymap_app/user_preference/user_preference_controller.dart';
 
@@ -11,11 +12,11 @@ class SplashServices {
 
   Future<void> checkLoginStatus(BuildContext context) async {
     final user = await _userPreference.getUser();
-    final bool isLoggedIn = user.isLogin == true;
+    // final bool isLoggedIn = user.isLogin == true;
+    final bool isLoggedIn = true;
 
-    Timer(const Duration(seconds: 2), () {
-      Navigator.pushReplacementNamed(
-        context,
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.go(
         isLoggedIn ? RouteName.dashboardScreen : RouteName.loginScreen,
       );
     });

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:partymap_app/res/assets/image_assets.dart';
 import 'package:partymap_app/res/colors/app_color.dart';
 import 'package:partymap_app/res/components/custom_password_field.dart';
@@ -90,7 +91,7 @@ class LoginScreen extends ConsumerWidget {
                   ),
                   GestureDetector(
                     onTap: () {
-                      Navigator.pushNamed(context, RouteName.signupScreen);
+                      context.push(RouteName.signupScreen);
                     },
                     child: CustomText(
                       text: "Signup",

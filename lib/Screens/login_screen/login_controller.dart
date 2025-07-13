@@ -1,6 +1,7 @@
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:partymap_app/models/user_model.dart';
 import 'package:partymap_app/repository/auth_repository/login_repository.dart';
 import 'package:partymap_app/res/navigators/routes_name.dart';
@@ -74,7 +75,7 @@ class LoginController extends StateNotifier<LoginState> {
       Future.microtask(() {
         if (context.mounted) {
           Utils.showSnackBar(context, 'Login Successfully', title: 'Login');
-          Navigator.pushReplacementNamed(context, RouteName.dashboardScreen);
+          context.push(RouteName.dashboardScreen);
         }
       });
     } catch (error) {

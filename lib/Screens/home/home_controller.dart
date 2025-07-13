@@ -78,11 +78,14 @@ class MapControllerNotifier extends StateNotifier<MapControllerState> {
     await _addDummyPolygons();
     await updateMarkers();
 
-    pointManager.addOnPointAnnotationClickListener((annotation) {
+    // Fix: Use correct listener signature without casting
+    pointManager.addOnPointAnnotationClickListener((
+      PointAnnotation annotation,
+    ) {
       final venue = state.annotationDetails[annotation.id];
       if (venue != null) {
         ref.read(selectedVenueProvider.notifier).state = venue;
-        log("Selected Venue: \${venue.name}");
+        log("Selected Venue: ${venue.name}");
       }
     } as OnPointAnnotationClickListener);
   }

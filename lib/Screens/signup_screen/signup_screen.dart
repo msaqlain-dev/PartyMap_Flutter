@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:partymap_app/Screens/signup_screen/signup_controller.dart';
 import 'package:partymap_app/res/assets/image_assets.dart';
 import 'package:partymap_app/res/colors/app_color.dart';
@@ -254,7 +255,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen> {
                     fontWeight: FontWeight.w500,
                   ),
                   GestureDetector(
-                    onTap: () => Navigator.pop(context),
+                    onTap: () => context.pop(),
                     child: CustomText(
                       text: "Login",
                       color: AppColor.primaryColor,

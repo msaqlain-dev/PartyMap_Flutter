@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:partymap_app/res/colors/app_color.dart';
 import 'package:partymap_app/res/components/custom_text.dart';
 import 'package:partymap_app/res/components/round_button.dart';
@@ -29,7 +30,7 @@ class MessageScreen extends ConsumerWidget {
         actions: [
           IconButton(
             onPressed: () {
-              Navigator.pushNamed(context, "/profile_screen");
+              context.push("/profile_screen");
             },
             icon: const Icon(Icons.person_outline_rounded),
             iconSize: 24,
@@ -56,7 +57,7 @@ class MessageScreen extends ConsumerWidget {
             fontSize: ResponsiveSizeUtil.size16,
             fontWeight: FontWeight.w700,
             onPress: () {
-              Navigator.pushNamed(context, RouteName.loginScreen);
+              context.push(RouteName.loginScreen);
             },
           ),
         ),
