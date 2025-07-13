@@ -1,0 +1,23 @@
+import 'dart:async';
+import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:partymap_app/res/navigators/routes_name.dart';
+import 'package:partymap_app/user_preference/user_preference_controller.dart';
+
+final splashServiceProvider = Provider((ref) => SplashServices());
+
+class SplashServices {
+  final UserPreference _userPreference = UserPreference();
+
+  Future<void> checkLoginStatus(BuildContext context) async {
+    final user = await _userPreference.getUser();
+    final bool isLoggedIn = user.isLogin == true;
+
+    Timer(const Duration(seconds: 2), () {
+      Navigator.pushReplacementNamed(
+        context,
+        isLoggedIn ? RouteName.dashboardScreen : RouteName.loginScreen,
+      );
+    });
+  }
+}
