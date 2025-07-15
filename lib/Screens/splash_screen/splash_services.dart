@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -12,8 +13,11 @@ class SplashServices {
 
   Future<void> checkLoginStatus(BuildContext context) async {
     final user = await _userPreference.getUser();
-    // final bool isLoggedIn = user.isLogin == true;
-    final bool isLoggedIn = true;
+    final bool isLoggedIn = user.isLogin == true;
+    // final bool isLoggedIn = true;
+
+    log('User login status: $isLoggedIn');
+    log("User details: ${user.toJson()}");
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.go(

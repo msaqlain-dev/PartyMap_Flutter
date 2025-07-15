@@ -46,6 +46,7 @@ class HomeScreen extends ConsumerWidget {
                   pitch: 75.0,
                 ),
                 styleUri: "mapbox://styles/partymap/cm83sl12w001601qzgf55fhqt",
+                // styleUri: MapboxStyles.STANDARD,
               ),
             ),
 

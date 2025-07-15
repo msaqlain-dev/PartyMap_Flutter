@@ -47,7 +47,7 @@ class LocationSearchController extends StateNotifier<LocationSearchState> {
     state = state.copyWith(isLoading: true);
     try {
       dynamic response = await _api.getMarkers();
-      log("SearchAPI Response: $response");
+      
       if (response is List) {
         final venues = response.map<VenueDetails>((venueData) {
           return VenueDetails(

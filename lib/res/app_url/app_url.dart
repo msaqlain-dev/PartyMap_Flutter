@@ -5,7 +5,7 @@ class AppUrl {
 
   static String get baseUrl => environment == 'dev' ? localURL : liveUrl;
 
-  static final loginApi = '$baseUrl/api/auth/user/login';
-  static final registerApi = '$baseUrl/api/auth/user/register';
-  static final markersApi = '$baseUrl/api/markers';
+  static final loginApi = 'api/auth/user/login';
+  static final registerApi = 'api/auth/user/register';
+  static final markersApi = 'api/markers';
 }
