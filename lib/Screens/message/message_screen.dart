@@ -15,6 +15,9 @@ class MessageScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // final controller = ref.read(messageControllerProvider.notifier);
     final title = ref.watch(messageControllerProvider).title ?? '';
+    final isLoggedIn = ref.watch(messageControllerProvider).isLoggedIn;
+    final controller = ref.read(messageControllerProvider.notifier);
+    controller.checkLoginStatus();
 
     return Scaffold(
       backgroundColor: AppColor.secondaryColor,
@@ -48,7 +51,7 @@ class MessageScreen extends ConsumerWidget {
         ),
         child: Center(
           child: RoundButton(
-            title: 'Login',
+            title: isLoggedIn ? 'Logout' : 'Login',
             buttonColor: AppColor.primaryColor,
             height: ResponsiveSizeUtil.scaleFactorHeight * 50,
             width: ResponsiveSizeUtil.scaleFactorWidth * 100,
@@ -57,7 +60,11 @@ class MessageScreen extends ConsumerWidget {
             fontSize: ResponsiveSizeUtil.size16,
             fontWeight: FontWeight.w700,
             onPress: () {
-              context.push(RouteName.loginScreen);
+              if (ref.watch(messageControllerProvider).isLoggedIn) {
+                ref.read(messageControllerProvider.notifier).logout(context);
+              } else {
+                context.go("/profile_screen");
+              }
             },
           ),
         ),

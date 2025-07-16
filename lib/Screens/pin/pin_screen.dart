@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:partymap_app/res/colors/app_color.dart';
 import 'package:partymap_app/res/components/custom_text.dart';
 import 'package:partymap_app/res/components/round_button.dart';
-import 'package:partymap_app/res/navigators/routes_name.dart';
 import 'package:partymap_app/utils/responsive_size_util.dart';
 import 'pin_controller.dart';
 
@@ -15,6 +14,9 @@ class PinScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // final controller = ref.read(pinControllerProvider.notifier);
     final title = ref.watch(pinControllerProvider).title ?? "";
+    final isLoggedIn = ref.watch(pinControllerProvider).isLoggedIn;
+    final controller = ref.read(pinControllerProvider.notifier);
+    controller.checkLoginStatus();
 
     return Scaffold(
       backgroundColor: AppColor.secondaryColor,
@@ -48,7 +50,7 @@ class PinScreen extends ConsumerWidget {
         ),
         child: Center(
           child: RoundButton(
-            title: 'Login',
+            title: isLoggedIn ? 'Logout' : 'Login',
             buttonColor: AppColor.primaryColor,
             height: ResponsiveSizeUtil.scaleFactorHeight * 50,
             width: ResponsiveSizeUtil.scaleFactorWidth * 100,
@@ -57,7 +59,11 @@ class PinScreen extends ConsumerWidget {
             fontSize: ResponsiveSizeUtil.size16,
             fontWeight: FontWeight.w700,
             onPress: () {
-              context.push(RouteName.loginScreen);
+              if (ref.watch(pinControllerProvider).isLoggedIn) {
+                ref.read(pinControllerProvider.notifier).logout(context);
+              } else {
+                context.go("/profile_screen");
+              }
             },
           ),
         ),
