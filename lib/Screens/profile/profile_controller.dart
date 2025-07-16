@@ -1,4 +1,7 @@
+import 'dart:developer';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:partymap_app/user_preference/user_preference_controller.dart';
 
 final profileControllerProvider =
     StateNotifierProvider<ProfileController, ProfileState>((ref) {
@@ -11,13 +14,17 @@ class ProfileState {
   final String phone;
   final String instagram;
   final String snapchat;
+  final String facebook;
+  final String twitter;
 
   ProfileState({
-    this.name = "Muhammad Saqlain",
-    this.email = "muhammadsaqlain@gmail.com",
-    this.phone = "+923153438373",
-    this.instagram = "Instagram",
-    this.snapchat = "Snap",
+    this.name = '',
+    this.email = '',
+    this.phone = '',
+    this.instagram = '',
+    this.snapchat = '',
+    this.facebook = '',
+    this.twitter = '',
   });
 
   ProfileState copyWith({
@@ -26,6 +33,8 @@ class ProfileState {
     String? phone,
     String? instagram,
     String? snapchat,
+    String? facebook,
+    String? twitter,
   }) {
     return ProfileState(
       name: name ?? this.name,
@@ -33,12 +42,30 @@ class ProfileState {
       phone: phone ?? this.phone,
       instagram: instagram ?? this.instagram,
       snapchat: snapchat ?? this.snapchat,
+      facebook: facebook ?? this.facebook,
+      twitter: twitter ?? this.twitter,
     );
   }
 }
 
 class ProfileController extends StateNotifier<ProfileState> {
-  ProfileController() : super(ProfileState());
+  ProfileController() : super(ProfileState()) {
+    _loadUserData();
+  }
 
-  // Add any future logic like fetching from shared preferences or backend
+  Future<void> _loadUserData() async {
+    final user = await UserPreference.instance.getUser();
+
+    log('User data loaded: ${user.toJson()}');
+
+    state = ProfileState(
+      name: '${user.firstName ?? ''} ${user.lastName ?? ''}',
+      email: user.email ?? '',
+      phone: user.phone ?? '',
+      instagram: user.instagram ?? '',
+      snapchat: user.snap ?? '',
+      facebook: user.facebook ?? '',
+      twitter: user.twitter ?? '',
+    );
+  }
 }

@@ -1,7 +1,9 @@
 import 'dart:developer';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:partymap_app/repository/auth_repository/signup_repository.dart';
+import 'package:partymap_app/res/navigators/routes_name.dart';
 import 'package:partymap_app/utils/utils.dart';
 
 final signupControllerProvider =
@@ -174,15 +176,24 @@ class SignupController extends StateNotifier<SignupState> {
       if (response != null) {
         if (context.mounted) {
           Utils.showSnackBar(context, 'Signup Successful', title: 'Success');
+          context.go(RouteName.loginScreen);
         }
       } else {
         if (context.mounted) {
-          Utils.showSnackBar(context, 'Signup Failed', title: 'Error');
+          Utils.showSnackBar(
+            context,
+            'User already exists, please try different email!',
+            title: 'Error',
+          );
         }
       }
     } catch (e) {
       if (context.mounted) {
-        Utils.showSnackBar(context, e.toString(), title: 'Error');
+        Utils.showSnackBar(
+          context,
+          'User already exists, please try different email!',
+          title: 'Error',
+        );
       }
     } finally {
       state = state.copyWith(loading: false);

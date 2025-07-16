@@ -6,9 +6,10 @@ import 'package:partymap_app/data/app_exceptions.dart';
 import 'package:partymap_app/data/network/base_api_services.dart';
 
 class NetworkApiServices extends BaseApiServices {
-  static const String liveUrl = 'https://anwar.shahfahad.info/';
+  // static const String liveUrl = 'https://anwar.shahfahad.info/';
+  static const String liveUrl = 'https://party-map-backend.vercel.app/';
   static const String localURL = 'http://10.0.2.2:8080/';
-  static const String localPhysicalDeviceURL = 'http://192.168.1.102:8080/';
+  static const String localPhysicalDeviceURL = 'http://192.168.0.102:8080/';
 
   // Singleton pattern for better resource management
   static NetworkApiServices? _instance;
@@ -27,7 +28,7 @@ class NetworkApiServices extends BaseApiServices {
   void _initializeDio() {
     _dio = Dio(
       BaseOptions(
-        baseUrl: localURL,
+        baseUrl: liveUrl,
         connectTimeout: const Duration(seconds: 15), // Increased timeout
         receiveTimeout: const Duration(seconds: 15),
         sendTimeout: const Duration(seconds: 15),

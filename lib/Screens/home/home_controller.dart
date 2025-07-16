@@ -106,7 +106,7 @@ class MapControllerNotifier extends StateNotifier<MapControllerState> {
       );
 
       // Add polygons first, then markers
-      await _addDummyPolygons();
+      // await _addDummyPolygons();
       await updateMarkers();
       _setupPointAnnotationListener();
     } catch (e) {

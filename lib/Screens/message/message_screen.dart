@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 import 'package:partymap_app/res/colors/app_color.dart';
 import 'package:partymap_app/res/components/custom_text.dart';
 import 'package:partymap_app/res/components/round_button.dart';
-import 'package:partymap_app/res/navigators/routes_name.dart';
 import 'package:partymap_app/utils/responsive_size_util.dart';
 import 'message_controller.dart';
 

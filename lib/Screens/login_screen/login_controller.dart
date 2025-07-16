@@ -67,7 +67,29 @@ class LoginController extends StateNotifier<LoginState> {
       final response = await _api.login(data);
       log("Login response: $response");
 
-      final userModel = UserModel(token: response['token'], isLogin: true);
+      final user = response['user'];
+
+      final userModel = UserModel(
+        id: user['_id'],
+        firstName: user['firstName'] ?? '',
+        lastName: user['lastName'] ?? '',
+        email: user['email'] ?? '',
+        phone: user['phone'] ?? '',
+        instagram: user['instagram'] ?? '',
+        facebook: user['facebook'] ?? '',
+        twitter: user['twitter'] ?? '',
+        snap: user['snap'] ?? '',
+        role: user['role'] ?? '',
+        address: Address(
+          addressLine1: user['address']?['addressLine1'] ?? '',
+          city: user['address']?['city'] ?? '',
+          state: user['address']?['state'] ?? '',
+          zipCode: user['address']?['zipCode'] ?? '',
+          country: user['address']?['country'] ?? '',
+        ),
+        token: response['token'],
+        isLogin: true,
+      );
 
       await _userPreference.saveUser(userModel);
 
@@ -80,7 +102,11 @@ class LoginController extends StateNotifier<LoginState> {
       });
     } catch (error) {
       if (context.mounted) {
-        Utils.showSnackBar(context, error.toString(), title: 'Error');
+        Utils.showSnackBar(
+          context,
+          'Invalid email or password, please try again!',
+          title: 'Failed to Login',
+        );
       }
     } finally {
       state = state.copyWith(loading: false);
