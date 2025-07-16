@@ -9,7 +9,11 @@ class ResponsiveSizeUtil {
   static late double scaleFactorWidth;
   static late double scaleFactorHeight;
 
-  //Custom sizes
+  // Base design dimensions - adjust based on your design
+  static const double baseWidth = 392.0;
+  static const double baseHeight = 820.0;
+
+  // Common sizes - optimized for performance
   static late double size0;
   static late double size2;
   static late double size3;
@@ -79,10 +83,15 @@ class ResponsiveSizeUtil {
   static late double size363;
   static late double size380;
 
+  static bool _isInitialized = false;
+
   static void init(BuildContext context) {
+    if (_isInitialized) return; // Prevent multiple initializations
+
     _mediaQueryData = MediaQuery.of(context);
     screenWidth = _mediaQueryData.size.width;
     screenHeight = _mediaQueryData.size.height;
+
     double safeAreaWidth =
         _mediaQueryData.padding.left + _mediaQueryData.padding.right;
     double safeAreaHeight =
@@ -90,19 +99,26 @@ class ResponsiveSizeUtil {
     safeWidth = (screenWidth - safeAreaWidth);
     safeHeight = (screenHeight - safeAreaHeight);
 
-    //Scale factor for responsive UI
-    scaleFactorHeight = (safeHeight / 820);
+    // Improved scale factor calculation for better consistency
+    scaleFactorHeight = (safeHeight / baseHeight).clamp(0.5, 2.0);
+    scaleFactorWidth = (safeWidth / baseWidth).clamp(0.5, 2.0);
+
+    // Apply smoothing for very small screens
     if (scaleFactorHeight < 1) {
-      double diff = (1 - scaleFactorHeight) * (1 - scaleFactorHeight);
+      double diff = (1 - scaleFactorHeight) * 0.5; // Reduced multiplier
       scaleFactorHeight += diff;
     }
-    scaleFactorWidth = safeWidth / 392;
     if (scaleFactorWidth < 1) {
-      double diff = (1 - scaleFactorWidth) * (1 - scaleFactorWidth);
+      double diff = (1 - scaleFactorWidth) * 0.5; // Reduced multiplier
       scaleFactorWidth += diff;
     }
 
-    //Custom sizes
+    _initializeSizes();
+    _isInitialized = true;
+  }
+
+  static void _initializeSizes() {
+    // Use height factor for consistent sizing
     size0 = 0;
     size2 = scaleFactorHeight * 2;
     size3 = scaleFactorHeight * 3;
@@ -173,54 +189,82 @@ class ResponsiveSizeUtil {
     size380 = scaleFactorHeight * 380;
   }
 
+  // Dynamic sizing methods for values not in the predefined list
   static double getScaledSizeWidth(double size) {
-    return (size * scaleFactorWidth);
+    return (size * scaleFactorWidth).clamp(size * 0.5, size * 2.0);
   }
 
   static double getScaledSizeHeight(double size) {
-    return (size * scaleFactorHeight);
+    return (size * scaleFactorHeight).clamp(size * 0.5, size * 2.0);
+  }
+
+  // Helper methods for responsive design
+  static double width(double size) => getScaledSizeWidth(size);
+  static double height(double size) => getScaledSizeHeight(size);
+  static double font(double size) => getScaledSizeHeight(size);
+
+  // Device type helpers
+  static bool get isTablet => screenWidth > 768;
+  static bool get isSmallScreen => screenWidth < 360;
+  static bool get isLargeScreen => screenWidth > 414;
+
+  // Reset method for testing or dynamic theme changes
+  static void reset() {
+    _isInitialized = false;
   }
 }
 
 class Spacing {
   static EdgeInsetsGeometry zero = EdgeInsets.zero;
 
-  static EdgeInsetsGeometry only(
-      {double top = 0,
-      double right = 0,
-      double bottom = 0,
-      double left = 0,
-      bool withResponsive = true}) {
+  static EdgeInsetsGeometry only({
+    double top = 0,
+    double right = 0,
+    double bottom = 0,
+    double left = 0,
+    bool withResponsive = true,
+  }) {
     if (withResponsive) {
       return EdgeInsets.only(
-          left: ResponsiveSizeUtil.getScaledSizeHeight(left),
-          right: ResponsiveSizeUtil.getScaledSizeHeight(right),
-          top: ResponsiveSizeUtil.getScaledSizeHeight(top),
-          bottom: ResponsiveSizeUtil.getScaledSizeHeight(bottom));
+        left: ResponsiveSizeUtil.getScaledSizeWidth(left),
+        right: ResponsiveSizeUtil.getScaledSizeWidth(right),
+        top: ResponsiveSizeUtil.getScaledSizeHeight(top),
+        bottom: ResponsiveSizeUtil.getScaledSizeHeight(bottom),
+      );
     } else {
       return EdgeInsets.only(
-          left: left, right: right, top: top, bottom: bottom);
+        left: left,
+        right: right,
+        top: top,
+        bottom: bottom,
+      );
     }
   }
 
   static EdgeInsetsGeometry fromLTRB(
-      double left, double top, double right, double bottom,
-      {bool withResponsive = true}) {
+    double left,
+    double top,
+    double right,
+    double bottom, {
+    bool withResponsive = true,
+  }) {
     return Spacing.only(
-        bottom: bottom,
-        top: top,
-        right: right,
-        left: left,
-        withResponsive: withResponsive);
+      bottom: bottom,
+      top: top,
+      right: right,
+      left: left,
+      withResponsive: withResponsive,
+    );
   }
 
   static EdgeInsetsGeometry all(double spacing, {bool withResponsive = true}) {
     return Spacing.only(
-        bottom: spacing,
-        top: spacing,
-        right: spacing,
-        left: spacing,
-        withResponsive: withResponsive);
+      bottom: spacing,
+      top: spacing,
+      right: spacing,
+      left: spacing,
+      withResponsive: withResponsive,
+    );
   }
 
   static EdgeInsetsGeometry left(double spacing, {bool withResponsive = true}) {
@@ -231,37 +275,53 @@ class Spacing {
     return Spacing.only(top: spacing, withResponsive: withResponsive);
   }
 
-  static EdgeInsetsGeometry right(double spacing,
-      {bool withResponsive = true}) {
+  static EdgeInsetsGeometry right(
+    double spacing, {
+    bool withResponsive = true,
+  }) {
     return Spacing.only(right: spacing, withResponsive: withResponsive);
   }
 
-  static EdgeInsetsGeometry bottom(double spacing,
-      {bool withResponsive = true}) {
+  static EdgeInsetsGeometry bottom(
+    double spacing, {
+    bool withResponsive = true,
+  }) {
     return Spacing.only(bottom: spacing, withResponsive: withResponsive);
   }
 
-  static EdgeInsetsGeometry horizontal(double spacing,
-      {bool withResponsive = true}) {
+  static EdgeInsetsGeometry horizontal(
+    double spacing, {
+    bool withResponsive = true,
+  }) {
     return Spacing.only(
-        left: spacing, right: spacing, withResponsive: withResponsive);
+      left: spacing,
+      right: spacing,
+      withResponsive: withResponsive,
+    );
   }
 
-  static EdgeInsetsGeometry vertical(double spacing,
-      {bool withResponsive = true}) {
+  static EdgeInsetsGeometry vertical(
+    double spacing, {
+    bool withResponsive = true,
+  }) {
     return Spacing.only(
-        top: spacing, bottom: spacing, withResponsive: withResponsive);
+      top: spacing,
+      bottom: spacing,
+      withResponsive: withResponsive,
+    );
   }
 
-  static EdgeInsetsGeometry symmetric(
-      {double vertical = 0,
-      double horizontal = 0,
-      bool withResponsive = true}) {
+  static EdgeInsetsGeometry symmetric({
+    double vertical = 0,
+    double horizontal = 0,
+    bool withResponsive = true,
+  }) {
     return Spacing.only(
-        top: vertical,
-        right: horizontal,
-        left: horizontal,
-        bottom: vertical,
-        withResponsive: withResponsive);
+      top: vertical,
+      right: horizontal,
+      left: horizontal,
+      bottom: vertical,
+      withResponsive: withResponsive,
+    );
   }
 }

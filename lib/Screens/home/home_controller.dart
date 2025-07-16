@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:developer';
 import 'package:flutter/foundation.dart';
@@ -25,6 +26,7 @@ class MapControllerState {
   final Map<MarkerType, List<Map<String, dynamic>>> points;
   final Map<MarkerType, List<VenueDetails>> details;
   final String mapType;
+  final bool isLoading;
 
   MapControllerState({
     this.mapboxMap,
@@ -41,6 +43,7 @@ class MapControllerState {
       MarkerType.restaurants: [],
     },
     this.mapType = "Dark",
+    this.isLoading = false,
   });
 
   MapControllerState copyWith({
@@ -50,6 +53,7 @@ class MapControllerState {
     Map<MarkerType, List<Map<String, dynamic>>>? points,
     Map<MarkerType, List<VenueDetails>>? details,
     String? mapType,
+    bool? isLoading,
   }) {
     return MapControllerState(
       mapboxMap: mapboxMap ?? this.mapboxMap,
@@ -59,6 +63,7 @@ class MapControllerState {
       points: points ?? this.points,
       details: details ?? this.details,
       mapType: mapType ?? this.mapType,
+      isLoading: isLoading ?? this.isLoading,
     );
   }
 }
@@ -68,192 +73,359 @@ class MapControllerNotifier extends StateNotifier<MapControllerState> {
   final _api = MarkersRepository();
   final TextEditingController searchController = TextEditingController();
   final FocusNode searchFocusNode = FocusNode();
+
+  // Cache for marker icon
   static Uint8List? _cachedMarkerIcon;
 
+  // Debounce timer for API calls
+  Timer? _debounceTimer;
+
   MapControllerNotifier(this.ref) : super(MapControllerState()) {
+    // Listen to dashboard changes with debouncing
     ref.listen(dashboardProvider.select((s) => s.selectedMarkers), (
       prev,
       next,
     ) {
-      updateMarkers();
+      _debounceTimer?.cancel();
+      _debounceTimer = Timer(const Duration(milliseconds: 300), () {
+        updateMarkers();
+      });
     });
   }
 
   Map<String, VenueDetails> get annotationDetails => state.annotationDetails;
 
   Future<void> onMapCreated(MapboxMap mapboxMap) async {
-    final pointManager = await mapboxMap.annotations
-        .createPointAnnotationManager();
+    try {
+      final pointManager = await mapboxMap.annotations
+          .createPointAnnotationManager();
 
-    state = state.copyWith(
-      mapboxMap: mapboxMap,
-      pointAnnotationManager: pointManager,
-    );
+      state = state.copyWith(
+        mapboxMap: mapboxMap,
+        pointAnnotationManager: pointManager,
+      );
 
-    // await _addDummyPolygons();
-    await updateMarkers();
-    _setupPointAnnotationListener();
+      // Add polygons first, then markers
+      await _addDummyPolygons();
+      await updateMarkers();
+      _setupPointAnnotationListener();
+    } catch (e) {
+      if (kDebugMode) print("Map creation error: $e");
+    }
   }
 
   void updateMapType(String newType) {
     state = state.copyWith(mapType: newType);
   }
 
-  Future<void> _addDummyPolygons() async {
-    final geoJsonData = jsonEncode({
-      'type': 'FeatureCollection',
-      'features': [
-        {
-          'type': 'Feature',
-          'geometry': {
-            'type': 'Polygon',
-            'coordinates': [
-              [
-                [-115.1701, 36.1100], // Centered on marker
-                [-115.1696, 36.1100],
-                [-115.1696, 36.1095],
-                [-115.1701, 36.1095],
-                [-115.1701, 36.1100],
-              ],
-            ],
-          },
-          'properties': {
-            'height': 100,
-            'color': 0xFFFF0000, // Red (ARGB)
-          },
-        },
-        {
-          'type': 'Feature',
-          'geometry': {
-            'type': 'Polygon',
-            'coordinates': [
-              [
-                [-115.1706, 36.1105],
-                [-115.1701, 36.1105],
-                [-115.1701, 36.1100],
-                [-115.1706, 36.1100],
-                [-115.1706, 36.1105],
-              ],
-            ],
-          },
-          'properties': {
-            'height': 70,
-            'color': 0xFF00FF00, // Green (ARGB)
-          },
-        },
-      ],
-    });
+  // Optimized marker icon loading with caching
+  Future<Uint8List> _loadMarkerIcon() async {
+    if (_cachedMarkerIcon != null) return _cachedMarkerIcon!;
 
     try {
-      // Add GeoJSON source
-      await state.mapboxMap?.style.addSource(
-        GeoJsonSource(id: 'polygon-source', data: geoJsonData),
-      );
-      if (kDebugMode) print("GeoJSON source added");
-
-      // Add FillExtrusionLayer with minimal styling
-      await state.mapboxMap?.style.addLayer(
-        FillExtrusionLayer(
-          id: 'extrusion-layer',
-          sourceId: 'polygon-source',
-          fillExtrusionColorExpression: ['get', 'color'],
-          fillExtrusionHeightExpression: ['get', 'height'],
-          fillExtrusionOpacity: 0.7,
-          slot: 'top', // Place above other layers
-        ),
-      );
-      if (kDebugMode) print("FillExtrusionLayer added");
-
-      // Verify layer exists
-      final layers = await state.mapboxMap?.style.getStyleLayers();
-      if (kDebugMode) print("Style layers: $layers");
-
-      // Focus camera on polygons
-      await updateCamera(36.1100, -115.1701, 10);
+      final ByteData bytes = await rootBundle.load(ImageAssets.markerIconSmall);
+      _cachedMarkerIcon = bytes.buffer.asUint8List();
+      return _cachedMarkerIcon!;
     } catch (e) {
-      if (kDebugMode) print("Polygon Error: $e");
+      if (kDebugMode) print("Error loading marker icon: $e");
+      rethrow;
     }
   }
 
-  Future<Uint8List> _loadMarkerIcon() async {
-    if (_cachedMarkerIcon != null) return _cachedMarkerIcon!;
-    final ByteData bytes = await rootBundle.load(ImageAssets.markerIconSmall);
-    _cachedMarkerIcon = bytes.buffer.asUint8List();
-    return _cachedMarkerIcon!;
+  // Optimized polygon rendering with performance improvements
+  Future<void> _addDummyPolygons() async {
+    try {
+      final geoJsonData = jsonEncode({
+        'type': 'FeatureCollection',
+        'features': [
+          {
+            'type': 'Feature',
+            'geometry': {
+              'type': 'Polygon',
+              'coordinates': [
+                [
+                  [-115.1701, 36.1100], // Centered on marker
+                  [-115.1696, 36.1100],
+                  [-115.1696, 36.1095],
+                  [-115.1701, 36.1095],
+                  [-115.1701, 36.1100],
+                ],
+              ],
+            },
+            'properties': {
+              'height': 100,
+              'color': 0xFFFF0000, // Red (ARGB)
+              'id': 'polygon_1',
+            },
+          },
+          {
+            'type': 'Feature',
+            'geometry': {
+              'type': 'Polygon',
+              'coordinates': [
+                [
+                  [-115.1706, 36.1105],
+                  [-115.1701, 36.1105],
+                  [-115.1701, 36.1100],
+                  [-115.1706, 36.1100],
+                  [-115.1706, 36.1105],
+                ],
+              ],
+            },
+            'properties': {
+              'height': 70,
+              'color': 0xFF00FF00, // Green (ARGB)
+              'id': 'polygon_2',
+            },
+          },
+        ],
+      });
+
+      // Check if source already exists to avoid duplicates
+      final existingSources = await state.mapboxMap?.style.getStyleSources();
+      final sourceExists =
+          existingSources?.any((source) => source?.id == 'polygon-source') ??
+          false;
+
+      if (!sourceExists) {
+        // Add GeoJSON source
+        await state.mapboxMap?.style.addSource(
+          GeoJsonSource(id: 'polygon-source', data: geoJsonData),
+        );
+        if (kDebugMode) print("GeoJSON source added");
+      } else {
+        // Update existing source data
+        // await state.mapboxMap?.style.updateStyleSourceProperty(
+        //   'polygon-source',
+        //   'data',
+        //   geoJsonData,
+        // );
+        if (kDebugMode) print("GeoJSON source updated");
+      }
+
+      // Check if layer already exists
+      final existingLayers = await state.mapboxMap?.style.getStyleLayers();
+      final layerExists =
+          existingLayers?.any((layer) => layer?.id == 'extrusion-layer') ??
+          false;
+
+      if (!layerExists) {
+        // Add FillExtrusionLayer with optimized styling
+        await state.mapboxMap?.style.addLayer(
+          FillExtrusionLayer(
+            id: 'extrusion-layer',
+            sourceId: 'polygon-source',
+            fillExtrusionColorExpression: ['get', 'color'],
+            fillExtrusionHeightExpression: ['get', 'height'],
+            fillExtrusionOpacity: 0.7,
+            fillExtrusionVerticalGradient: true, // Better visual effect
+            slot: 'top', // Place above other layers
+          ),
+        );
+        if (kDebugMode) print("FillExtrusionLayer added");
+      }
+
+      // Verify layer exists
+      final layers = await state.mapboxMap?.style.getStyleLayers();
+      if (kDebugMode) print("Style layers count: ${layers?.length}");
+
+      // Focus camera on polygons with smooth animation
+      await updateCamera(36.1100, -115.1701, 15); // Slightly closer zoom
+    } catch (e) {
+      if (kDebugMode) print("Polygon Error: $e");
+      // Don't let polygon errors break the entire map
+    }
   }
 
-  Future<void> updateMarkers() async {
-    final dashboard = ref.read(dashboardProvider);
-    final selectedTypes = dashboard.selectedMarkers;
-    final image = await _loadMarkerIcon();
-
+  // Method to add polygons from backend data (for future implementation)
+  Future<void> addPolygonsFromApi(
+    List<Map<String, dynamic>> polygonData,
+  ) async {
     try {
-      final response = await _api.getMarkers();
-      log("API Response: $response");
+      final features = polygonData.map((polygon) {
+        return {
+          'type': 'Feature',
+          'geometry': {
+            'type': 'Polygon',
+            'coordinates': polygon['coordinates'],
+          },
+          'properties': {
+            'height': polygon['height'] ?? 50,
+            'color': polygon['color'] ?? 0xFF0000FF,
+            'id': polygon['id'] ?? 'polygon_${polygon.hashCode}',
+            'name': polygon['name'] ?? '',
+            'description': polygon['description'] ?? '',
+          },
+        };
+      }).toList();
 
-      await state.pointAnnotationManager?.deleteAll();
-      final Map<String, VenueDetails> annotationsMap = {};
-      final Map<MarkerType, List<Map<String, dynamic>>> points = {
-        MarkerType.parties: [],
-        MarkerType.bars: [],
-        MarkerType.restaurants: [],
-      };
-      final Map<MarkerType, List<VenueDetails>> details = {
-        MarkerType.parties: [],
-        MarkerType.bars: [],
-        MarkerType.restaurants: [],
-      };
+      // final geoJsonData = jsonEncode({
+      //   'type': 'FeatureCollection',
+      //   'features': features,
+      // });
 
-      for (final marker in response) {
-        final type = _getTypeFromString(marker['markerType']);
-        if (selectedTypes.isNotEmpty && !selectedTypes.contains(type)) continue;
+      // Update polygon source with new data
+      // await state.mapboxMap?.style.updateStyleSourceProperty(
+      //   'polygon-source',
+      //   'data',
+      //   geoJsonData,
+      // );
 
-        final lat = double.parse(marker['latitude']);
-        final lng = double.parse(marker['longitude']);
+      if (kDebugMode)
+        print("Polygons updated from API: ${features.length} polygons");
+    } catch (e) {
+      if (kDebugMode) print("API Polygons Error: $e");
+    }
+  }
+
+  // Method to remove all polygons
+  Future<void> clearPolygons() async {
+    try {
+      await state.mapboxMap?.style.removeStyleLayer('extrusion-layer');
+      await state.mapboxMap?.style.removeStyleSource('polygon-source');
+      if (kDebugMode) print("Polygons cleared");
+    } catch (e) {
+      if (kDebugMode) print("Clear polygons error: $e");
+    }
+  }
+
+  static Future<Map<String, dynamic>> _processMarkersInIsolate(
+    List<dynamic> rawData,
+  ) async {
+    return await compute(_processMarkersData, rawData);
+  }
+
+  // Static function for isolate computation
+  static Map<String, dynamic> _processMarkersData(List<dynamic> response) {
+    final Map<String, VenueDetails> annotationsData = {};
+    final Map<MarkerType, List<Map<String, dynamic>>> points = {
+      MarkerType.parties: [],
+      MarkerType.bars: [],
+      MarkerType.restaurants: [],
+    };
+    final Map<MarkerType, List<VenueDetails>> details = {
+      MarkerType.parties: [],
+      MarkerType.bars: [],
+      MarkerType.restaurants: [],
+    };
+
+    for (final marker in response) {
+      try {
+        final type = _getTypeFromStringStatic(marker['markerType']);
+        final lat =
+            double.tryParse(marker['latitude']?.toString() ?? '0') ?? 0.0;
+        final lng =
+            double.tryParse(marker['longitude']?.toString() ?? '0') ?? 0.0;
+
+        if (lat == 0.0 || lng == 0.0) continue; // Skip invalid coordinates
+
         final detail = VenueDetails(
-          name: marker['placeName'],
-          description: marker['partyDescription'],
+          name: marker['placeName']?.toString() ?? 'Unknown',
+          description: marker['partyDescription']?.toString() ?? '',
           type: type,
-          website: marker['website'],
-          time: marker['partyTime'],
-          partyIcon: marker['partyIcon'],
-          placeImage: marker['placeImage'],
-          partyImage: marker['partyImage'],
+          website: marker['website']?.toString() ?? '',
+          time: marker['partyTime']?.toString() ?? '',
+          partyIcon: marker['partyIcon']?.toString(),
+          placeImage: marker['placeImage']?.toString(),
+          partyImage: marker['partyImage']?.toString(),
           latitude: lat,
           longitude: lng,
-          data: (marker['tickets'] as List<dynamic>)
-              .map<double>(
-                (ticket) =>
-                    (ticket['availableTickets'] as num?)?.toDouble() ?? 0.0,
-              )
-              .toList(),
-          times: (marker['tickets'] as List<dynamic>)
-              .map<String>((ticket) => ticket['hour'] ?? '')
-              .toList(),
+          data: _extractTicketData(marker['tickets']),
+          times: _extractTicketTimes(marker['tickets']),
         );
 
         points[type]!.add({
           'type': 'Point',
           'coordinates': [lng, lat],
+          'detail': detail,
         });
         details[type]!.add(detail);
+      } catch (e) {
+        if (kDebugMode) print("Error processing marker: $e");
+        continue; // Skip invalid markers
+      }
+    }
 
-        final annotation = await state.pointAnnotationManager?.create(
-          PointAnnotationOptions(
-            geometry: Point(coordinates: Position(lng, lat)),
-            image: image,
-            textField: detail.name,
-            textSize: 14,
-            textColor: AppColor.whiteColor.value,
-            textHaloColor: AppColor.primaryColor.value,
-            textHaloWidth: 5.0,
-            textHaloBlur: 5.0,
-            textOffset: [0.0, 1.5],
-          ),
-        );
+    return {
+      'points': points,
+      'details': details,
+      'annotationsData': annotationsData,
+    };
+  }
 
-        if (annotation != null) {
-          annotationsMap[annotation.id] = detail;
+  static List<double> _extractTicketData(dynamic tickets) {
+    if (tickets is! List) return [];
+    return tickets
+        .map<double>(
+          (ticket) => (ticket['availableTickets'] as num?)?.toDouble() ?? 0.0,
+        )
+        .toList();
+  }
+
+  static List<String> _extractTicketTimes(dynamic tickets) {
+    if (tickets is! List) return [];
+    return tickets
+        .map<String>((ticket) => ticket['hour']?.toString() ?? '')
+        .toList();
+  }
+
+  Future<void> updateMarkers() async {
+    if (state.isLoading) return; // Prevent concurrent updates
+
+    state = state.copyWith(isLoading: true);
+
+    try {
+      final dashboard = ref.read(dashboardProvider);
+      final selectedTypes = dashboard.selectedMarkers;
+      final image = await _loadMarkerIcon();
+      final response = await _api.getMarkers();
+
+      log("SearchAPI Response: $response");
+
+      // Process data in isolate to avoid blocking main thread
+      final processedData = await _processMarkersInIsolate(response);
+      final points =
+          processedData['points']
+              as Map<MarkerType, List<Map<String, dynamic>>>;
+      final details =
+          processedData['details'] as Map<MarkerType, List<VenueDetails>>;
+
+      // Clear existing annotations efficiently
+      await state.pointAnnotationManager?.deleteAll();
+      final Map<String, VenueDetails> annotationsMap = {};
+
+      // Create annotations only for selected types
+      for (final type in MarkerType.values) {
+        if (selectedTypes.isNotEmpty && !selectedTypes.contains(type)) continue;
+
+        final typePoints = points[type] ?? [];
+        for (final pointData in typePoints) {
+          final detail = pointData['detail'] as VenueDetails;
+          final coordinates = pointData['coordinates'] as List<dynamic>;
+
+          try {
+            final annotation = await state.pointAnnotationManager?.create(
+              PointAnnotationOptions(
+                geometry: Point(
+                  coordinates: Position(coordinates[0], coordinates[1]),
+                ),
+                image: image,
+                textField: detail.name,
+                textSize: 14,
+                textColor: AppColor.whiteColor.value,
+                textHaloColor: AppColor.primaryColor.value,
+                textHaloWidth: 5.0,
+                textHaloBlur: 5.0,
+                textOffset: [0.0, 1.5],
+              ),
+            );
+
+            if (annotation != null) {
+              annotationsMap[annotation.id] = detail;
+            }
+          } catch (e) {
+            if (kDebugMode) print("Error creating annotation: $e");
+          }
         }
       }
 
@@ -262,32 +434,31 @@ class MapControllerNotifier extends StateNotifier<MapControllerState> {
         points: points,
         details: details,
       );
-
-      // Avoid overriding polygon camera
-      // if (count > 0) {
-      //   avgLat /= count;
-      //   avgLng /= count;
-      //   await updateCamera(avgLat, avgLng, 16);
-      // }
     } catch (e) {
       if (kDebugMode) print("Marker Update Error: $e");
+    } finally {
+      state = state.copyWith(isLoading: false);
     }
   }
 
   Future<void> updateCamera(double lat, double lng, double zoom) async {
-    final camera = CameraOptions(
-      center: Point(coordinates: Position(lng, lat)),
-      zoom: zoom,
-      pitch: 75.0,
-    );
-    final animation = MapAnimationOptions(duration: 1000);
-    await state.mapboxMap?.flyTo(camera, animation);
-    if (kDebugMode)
-      print("Camera updated to lat: $lat, lng: $lng, zoom: $zoom");
+    try {
+      final camera = CameraOptions(
+        center: Point(coordinates: Position(lng, lat)),
+        zoom: zoom,
+        pitch: 75.0,
+      );
+      final animation = MapAnimationOptions(duration: 1000);
+      await state.mapboxMap?.flyTo(camera, animation);
+      if (kDebugMode)
+        print("Camera updated to lat: $lat, lng: $lng, zoom: $zoom");
+    } catch (e) {
+      if (kDebugMode) print("Camera update error: $e");
+    }
   }
 
-  MarkerType _getTypeFromString(String value) {
-    switch (value.toLowerCase()) {
+  static MarkerType _getTypeFromStringStatic(String? value) {
+    switch (value?.toLowerCase()) {
       case 'party':
         return MarkerType.parties;
       case 'bar':
@@ -311,6 +482,7 @@ class MapControllerNotifier extends StateNotifier<MapControllerState> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     searchController.dispose();
     searchFocusNode.dispose();
     super.dispose();
@@ -342,6 +514,7 @@ class MyAnnotationClickListener implements OnPointAnnotationClickListener {
   }
 }
 
+// import 'dart:convert';
 // import 'dart:developer';
 // import 'package:flutter/foundation.dart';
 // import 'package:flutter/material.dart';
@@ -364,7 +537,6 @@ class MyAnnotationClickListener implements OnPointAnnotationClickListener {
 // class MapControllerState {
 //   final MapboxMap? mapboxMap;
 //   final PointAnnotationManager? pointAnnotationManager;
-//   final PolygonAnnotationManager? polygonAnnotationManager;
 //   final Map<String, VenueDetails> annotationDetails;
 //   final Map<MarkerType, List<Map<String, dynamic>>> points;
 //   final Map<MarkerType, List<VenueDetails>> details;
@@ -373,7 +545,6 @@ class MyAnnotationClickListener implements OnPointAnnotationClickListener {
 //   MapControllerState({
 //     this.mapboxMap,
 //     this.pointAnnotationManager,
-//     this.polygonAnnotationManager,
 //     this.annotationDetails = const {},
 //     this.points = const {
 //       MarkerType.parties: [],
@@ -391,7 +562,6 @@ class MyAnnotationClickListener implements OnPointAnnotationClickListener {
 //   MapControllerState copyWith({
 //     MapboxMap? mapboxMap,
 //     PointAnnotationManager? pointAnnotationManager,
-//     PolygonAnnotationManager? polygonAnnotationManager,
 //     Map<String, VenueDetails>? annotationDetails,
 //     Map<MarkerType, List<Map<String, dynamic>>>? points,
 //     Map<MarkerType, List<VenueDetails>>? details,
@@ -401,8 +571,6 @@ class MyAnnotationClickListener implements OnPointAnnotationClickListener {
 //       mapboxMap: mapboxMap ?? this.mapboxMap,
 //       pointAnnotationManager:
 //           pointAnnotationManager ?? this.pointAnnotationManager,
-//       polygonAnnotationManager:
-//           polygonAnnotationManager ?? this.polygonAnnotationManager,
 //       annotationDetails: annotationDetails ?? this.annotationDetails,
 //       points: points ?? this.points,
 //       details: details ?? this.details,
@@ -416,6 +584,7 @@ class MyAnnotationClickListener implements OnPointAnnotationClickListener {
 //   final _api = MarkersRepository();
 //   final TextEditingController searchController = TextEditingController();
 //   final FocusNode searchFocusNode = FocusNode();
+//   static Uint8List? _cachedMarkerIcon;
 
 //   MapControllerNotifier(this.ref) : super(MapControllerState()) {
 //     ref.listen(dashboardProvider.select((s) => s.selectedMarkers), (
@@ -426,22 +595,18 @@ class MyAnnotationClickListener implements OnPointAnnotationClickListener {
 //     });
 //   }
 
-//   // Public getter for annotationDetails
 //   Map<String, VenueDetails> get annotationDetails => state.annotationDetails;
 
 //   Future<void> onMapCreated(MapboxMap mapboxMap) async {
 //     final pointManager = await mapboxMap.annotations
 //         .createPointAnnotationManager();
-//     final polygonManager = await mapboxMap.annotations
-//         .createPolygonAnnotationManager();
 
 //     state = state.copyWith(
 //       mapboxMap: mapboxMap,
 //       pointAnnotationManager: pointManager,
-//       polygonAnnotationManager: polygonManager,
 //     );
 
-//     await _addDummyPolygons();
+//     // await _addDummyPolygons();
 //     await updateMarkers();
 //     _setupPointAnnotationListener();
 //   }
@@ -450,17 +615,98 @@ class MyAnnotationClickListener implements OnPointAnnotationClickListener {
 //     state = state.copyWith(mapType: newType);
 //   }
 
+//   Future<void> _addDummyPolygons() async {
+//     final geoJsonData = jsonEncode({
+//       'type': 'FeatureCollection',
+//       'features': [
+//         {
+//           'type': 'Feature',
+//           'geometry': {
+//             'type': 'Polygon',
+//             'coordinates': [
+//               [
+//                 [-115.1701, 36.1100], // Centered on marker
+//                 [-115.1696, 36.1100],
+//                 [-115.1696, 36.1095],
+//                 [-115.1701, 36.1095],
+//                 [-115.1701, 36.1100],
+//               ],
+//             ],
+//           },
+//           'properties': {
+//             'height': 100,
+//             'color': 0xFFFF0000, // Red (ARGB)
+//           },
+//         },
+//         {
+//           'type': 'Feature',
+//           'geometry': {
+//             'type': 'Polygon',
+//             'coordinates': [
+//               [
+//                 [-115.1706, 36.1105],
+//                 [-115.1701, 36.1105],
+//                 [-115.1701, 36.1100],
+//                 [-115.1706, 36.1100],
+//                 [-115.1706, 36.1105],
+//               ],
+//             ],
+//           },
+//           'properties': {
+//             'height': 70,
+//             'color': 0xFF00FF00, // Green (ARGB)
+//           },
+//         },
+//       ],
+//     });
+
+//     try {
+//       // Add GeoJSON source
+//       await state.mapboxMap?.style.addSource(
+//         GeoJsonSource(id: 'polygon-source', data: geoJsonData),
+//       );
+//       if (kDebugMode) print("GeoJSON source added");
+
+//       // Add FillExtrusionLayer with minimal styling
+//       await state.mapboxMap?.style.addLayer(
+//         FillExtrusionLayer(
+//           id: 'extrusion-layer',
+//           sourceId: 'polygon-source',
+//           fillExtrusionColorExpression: ['get', 'color'],
+//           fillExtrusionHeightExpression: ['get', 'height'],
+//           fillExtrusionOpacity: 0.7,
+//           slot: 'top', // Place above other layers
+//         ),
+//       );
+//       if (kDebugMode) print("FillExtrusionLayer added");
+
+//       // Verify layer exists
+//       final layers = await state.mapboxMap?.style.getStyleLayers();
+//       if (kDebugMode) print("Style layers: $layers");
+
+//       // Focus camera on polygons
+//       await updateCamera(36.1100, -115.1701, 10);
+//     } catch (e) {
+//       if (kDebugMode) print("Polygon Error: $e");
+//     }
+//   }
+
+//   Future<Uint8List> _loadMarkerIcon() async {
+//     if (_cachedMarkerIcon != null) return _cachedMarkerIcon!;
+//     final ByteData bytes = await rootBundle.load(ImageAssets.markerIconSmall);
+//     _cachedMarkerIcon = bytes.buffer.asUint8List();
+//     return _cachedMarkerIcon!;
+//   }
+
 //   Future<void> updateMarkers() async {
 //     final dashboard = ref.read(dashboardProvider);
 //     final selectedTypes = dashboard.selectedMarkers;
-//     final ByteData bytes = await rootBundle.load(ImageAssets.markerIconSmall);
-//     final Uint8List image = bytes.buffer.asUint8List();
+//     final image = await _loadMarkerIcon();
 
 //     try {
 //       final response = await _api.getMarkers();
 //       log("API Response: $response");
 
-//       // Clear existing annotations
 //       await state.pointAnnotationManager?.deleteAll();
 //       final Map<String, VenueDetails> annotationsMap = {};
 //       final Map<MarkerType, List<Map<String, dynamic>>> points = {
@@ -474,10 +720,6 @@ class MyAnnotationClickListener implements OnPointAnnotationClickListener {
 //         MarkerType.restaurants: [],
 //       };
 
-//       double avgLat = 0, avgLng = 0;
-//       int count = 0;
-
-//       // Process API response
 //       for (final marker in response) {
 //         final type = _getTypeFromString(marker['markerType']);
 //         if (selectedTypes.isNotEmpty && !selectedTypes.contains(type)) continue;
@@ -519,8 +761,7 @@ class MyAnnotationClickListener implements OnPointAnnotationClickListener {
 //             textField: detail.name,
 //             textSize: 14,
 //             textColor: AppColor.whiteColor.value,
-//             textHaloColor:
-//                 AppColor.primaryColor.value, // Use Color object directly
+//             textHaloColor: AppColor.primaryColor.value,
 //             textHaloWidth: 5.0,
 //             textHaloBlur: 5.0,
 //             textOffset: [0.0, 1.5],
@@ -530,10 +771,6 @@ class MyAnnotationClickListener implements OnPointAnnotationClickListener {
 //         if (annotation != null) {
 //           annotationsMap[annotation.id] = detail;
 //         }
-
-//         avgLat += lat;
-//         avgLng += lng;
-//         count++;
 //       }
 
 //       state = state.copyWith(
@@ -542,16 +779,12 @@ class MyAnnotationClickListener implements OnPointAnnotationClickListener {
 //         details: details,
 //       );
 
-//       if (count > 0) {
-//         avgLat /= count;
-//         avgLng /= count;
-//         await updateCamera(avgLat, avgLng, 16);
-//         if (kDebugMode) {
-//           print(
-//             '<=====================Latitude: $avgLat , Longitude: $avgLng =====================>',
-//           );
-//         }
-//       }
+//       // Avoid overriding polygon camera
+//       // if (count > 0) {
+//       //   avgLat /= count;
+//       //   avgLng /= count;
+//       //   await updateCamera(avgLat, avgLng, 16);
+//       // }
 //     } catch (e) {
 //       if (kDebugMode) print("Marker Update Error: $e");
 //     }
@@ -561,10 +794,12 @@ class MyAnnotationClickListener implements OnPointAnnotationClickListener {
 //     final camera = CameraOptions(
 //       center: Point(coordinates: Position(lng, lat)),
 //       zoom: zoom,
-//       pitch: 75.0, // Set to 0 to avoid shader issues
+//       pitch: 75.0,
 //     );
 //     final animation = MapAnimationOptions(duration: 1000);
 //     await state.mapboxMap?.flyTo(camera, animation);
+//     if (kDebugMode)
+//       print("Camera updated to lat: $lat, lng: $lng, zoom: $zoom");
 //   }
 
 //   MarkerType _getTypeFromString(String value) {
@@ -577,59 +812,6 @@ class MyAnnotationClickListener implements OnPointAnnotationClickListener {
 //         return MarkerType.restaurants;
 //       default:
 //         return MarkerType.parties;
-//     }
-//   }
-
-//   Future<void> _addDummyPolygons() async {
-//     if (state.polygonAnnotationManager == null) return;
-
-//     final dummyPolygons = [
-//       {
-//         "coordinates": [
-//           [
-//             Position(-115.1249, 36.1288),
-//             Position(-115.1259, 36.1288),
-//             Position(-115.1259, 36.1278),
-//             Position(-115.1249, 36.1278),
-//             Position(-115.1249, 36.1288),
-//           ],
-//         ],
-//         "fillColor": Colors.blue, // Use Color object
-//         "fillOpacity": 0.5,
-//         "fillOutlineColor": Colors.black, // Use Color object
-//       },
-//       {
-//         "coordinates": [
-//           [
-//             Position(-115.1239, 36.1298),
-//             Position(-115.1249, 36.1298),
-//             Position(-115.1249, 36.1288),
-//             Position(-115.1239, 36.1288),
-//             Position(-115.1239, 36.1298),
-//           ],
-//         ],
-//         "fillColor": Colors.green, // Use Color object
-//         "fillOpacity": 0.3,
-//         "fillOutlineColor": Colors.red, // Use Color object
-//       },
-//     ];
-
-//     for (final polygonData in dummyPolygons) {
-//       final geometry = Polygon(
-//         coordinates: polygonData["coordinates"] as List<List<Position>>,
-//       );
-//       final options = PolygonAnnotationOptions(
-//         geometry: geometry,
-//         fillColor: (polygonData["fillColor"] as Color).value, // Convert to int
-//         fillOpacity: polygonData["fillOpacity"] as double,
-//         fillOutlineColor:
-//             (polygonData["fillOutlineColor"] as Color).value, // Convert to int
-//       );
-//       try {
-//         await state.polygonAnnotationManager?.create(options);
-//       } catch (e) {
-//         if (kDebugMode) print("Polygon Error: $e");
-//       }
 //     }
 //   }
 

@@ -8,8 +8,9 @@ void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Set Mapbox access token
-  const accessToken = '';
- MapboxOptions.setAccessToken(accessToken);
+  const accessToken =
+      '';
+  MapboxOptions.setAccessToken(accessToken);
 
   runApp(const ProviderScope(child: MyApp()));
 }
