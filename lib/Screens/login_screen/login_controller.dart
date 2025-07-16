@@ -51,7 +51,7 @@ class LoginState {
 class LoginController extends StateNotifier<LoginState> {
   final Ref ref;
   final _api = LoginRepository();
-  final UserPreference _userPreference = UserPreference();
+  final UserPreference _userPreference = UserPreference.instance;
 
   LoginController(this.ref) : super(LoginState());
 

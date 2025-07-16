@@ -10,7 +10,7 @@ import 'package:partymap_app/user_preference/user_preference_controller.dart';
 final splashServiceProvider = Provider((ref) => SplashServices());
 
 class SplashServices {
-  final UserPreference _userPreference = UserPreference();
+  final UserPreference _userPreference = UserPreference.instance;
   
   // Add connectivity check
   bool _isProcessing = false;
