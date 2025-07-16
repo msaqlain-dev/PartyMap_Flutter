@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:partymap_app/res/colors/app_color.dart';
 import 'package:partymap_app/utils/responsive_size_util.dart';
 
-// ignore: must_be_immutable
 class CustomTextField extends StatelessWidget {
   final String? label;
   final TextEditingController? controller;
@@ -19,11 +18,10 @@ class CustomTextField extends StatelessWidget {
   final String? Function(String?)? validator;
   final EdgeInsetsGeometry? padding;
   final EdgeInsetsGeometry? margin;
+  final double? height;
+  final double? width;
 
-  double? height = ResponsiveSizeUtil.size60;
-  double? width = double.infinity;
-
-  CustomTextField({
+  const CustomTextField({
     super.key,
     this.label,
     this.controller,
@@ -47,8 +45,8 @@ class CustomTextField extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: height,
-      width: width,
+      height: height ?? ResponsiveSizeUtil.size60,
+      width: width ?? double.infinity,
       margin: margin,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(ResponsiveSizeUtil.size10),
@@ -57,32 +55,48 @@ class CustomTextField extends StatelessWidget {
       child: Padding(
         padding:
             padding ??
-            EdgeInsets.symmetric(horizontal: ResponsiveSizeUtil.size16),
-        child: TextFormField(
-          controller: controller,
-          focusNode: focusNode,
-          keyboardType: keyboardType,
-          obscureText: obscureText,
-          obscuringCharacter: obscuringCharacter ?? '•',
-          readOnly: readOnly,
-          onChanged: onChanged,
-          onFieldSubmitted: onSubmitted,
-          validator: validator,
-          style: TextStyle(
-            fontSize: ResponsiveSizeUtil.size15,
-            color: AppColor.blackColor,
-          ),
-          decoration: InputDecoration(
-            border: InputBorder.none,
-            icon: icon,
-            prefixIcon: prefixIcon,
-            suffixIcon: suffixIcon,
-            labelText: label,
-            labelStyle: TextStyle(
-              fontSize: ResponsiveSizeUtil.size15,
-              color: AppColor.grayColor,
+            EdgeInsets.symmetric(
+              horizontal: ResponsiveSizeUtil.size16,
+              vertical: ResponsiveSizeUtil.size7, // Added vertical padding
             ),
-          ),
+        child: Row(
+          children: [
+            if (icon != null) ...[
+              SizedBox(width: 24, height: 24, child: icon),
+              SizedBox(width: ResponsiveSizeUtil.size10),
+            ],
+            Expanded(
+              child: TextFormField(
+                controller: controller,
+                focusNode: focusNode,
+                keyboardType: keyboardType,
+                obscureText: obscureText,
+                obscuringCharacter: obscuringCharacter ?? '•',
+                readOnly: readOnly,
+                onChanged: onChanged,
+                onFieldSubmitted: onSubmitted,
+                validator: validator,
+                style: TextStyle(
+                  fontSize: ResponsiveSizeUtil.size15,
+                  color: AppColor.blackColor,
+                  height: 1.2, // Consistent line height
+                ),
+                decoration: InputDecoration(
+                  border: InputBorder.none,
+                  prefixIcon: prefixIcon,
+                  suffixIcon: suffixIcon,
+                  labelText: label,
+                  labelStyle: TextStyle(
+                    fontSize: ResponsiveSizeUtil.size15,
+                    color: AppColor.grayColor,
+                    height: 1.2,
+                  ),
+                  contentPadding: EdgeInsets.zero,
+                  isDense: true,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );

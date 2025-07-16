@@ -8,7 +8,7 @@ import 'package:partymap_app/data/network/base_api_services.dart';
 class NetworkApiServices extends BaseApiServices {
   static const String liveUrl = 'https://anwar.shahfahad.info/';
   static const String localURL = 'http://10.0.2.2:8080/';
-  static const String localPhysicalDeviceURL = 'http://192.168.1.102:8080/';
+  static const String localPhysicalDeviceURL = 'http://192.168.0.102:8080/';
 
   String _sanitizeUrl(String url) {
     return url.startsWith('/') ? url.substring(1) : url;
