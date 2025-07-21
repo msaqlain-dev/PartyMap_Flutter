@@ -26,10 +26,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // Initialize responsive sizing
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      ResponsiveSizeUtil.init(context);
-    });
   }
 
   @override

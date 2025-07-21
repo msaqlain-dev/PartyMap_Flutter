@@ -29,9 +29,9 @@ class NetworkApiServices extends BaseApiServices {
     _dio = Dio(
       BaseOptions(
         baseUrl: liveUrl,
-        connectTimeout: const Duration(seconds: 15), // Increased timeout
-        receiveTimeout: const Duration(seconds: 15),
-        sendTimeout: const Duration(seconds: 15),
+        connectTimeout: const Duration(seconds: 5), // Increased timeout
+        receiveTimeout: const Duration(seconds: 10),
+        sendTimeout: const Duration(seconds: 5),
         headers: {
           HttpHeaders.contentTypeHeader: "application/json",
           HttpHeaders.acceptHeader: "application/json",

@@ -269,6 +269,7 @@ class _VenueDetailBottomSheetState extends ConsumerState<VenueDetailBottomSheet>
           color: Colors.black.withOpacity(0.94),
           borderRadius: BorderRadius.vertical(
             top: Radius.circular(ResponsiveSizeUtil.size20),
+            bottom: Radius.circular(ResponsiveSizeUtil.size20),
           ),
           boxShadow: [
             BoxShadow(
@@ -285,18 +286,18 @@ class _VenueDetailBottomSheetState extends ConsumerState<VenueDetailBottomSheet>
               mainAxisSize: MainAxisSize.min,
               children: [
                 // Handle bar
-                Container(
-                  width: ResponsiveSizeUtil.size40,
-                  height: ResponsiveSizeUtil.size6,
-                  decoration: BoxDecoration(
-                    color: AppColor.grayColor,
-                    borderRadius: BorderRadius.circular(
-                      ResponsiveSizeUtil.size3,
-                    ),
-                  ),
-                ),
+                // Container(
+                //   width: ResponsiveSizeUtil.size40,
+                //   height: ResponsiveSizeUtil.size6,
+                //   decoration: BoxDecoration(
+                //     color: AppColor.grayColor,
+                //     borderRadius: BorderRadius.circular(
+                //       ResponsiveSizeUtil.size3,
+                //     ),
+                //   ),
+                // ),
 
-                SizedBox(height: ResponsiveSizeUtil.size10),
+                // SizedBox(height: ResponsiveSizeUtil.size10),
 
                 // Close button
                 Align(
@@ -441,7 +442,7 @@ class _VenueDetailBottomSheetState extends ConsumerState<VenueDetailBottomSheet>
                           fontSize: ResponsiveSizeUtil.size12,
                           fontWeight: FontWeight.w600,
                         ),
-                        SizedBox(height: ResponsiveSizeUtil.size40),
+                        SizedBox(height: ResponsiveSizeUtil.size52),
                         CustomText(
                           text: 'Time',
                           color: AppColor.whiteColor,

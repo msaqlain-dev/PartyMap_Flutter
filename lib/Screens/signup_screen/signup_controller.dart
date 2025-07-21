@@ -175,12 +175,12 @@ class SignupController extends StateNotifier<SignupState> {
       log("Signup response: $response");
       if (response != null) {
         if (context.mounted) {
-          Utils.showSnackBar(context, 'Signup Successful', title: 'Success');
+          Utils.showSuccessSnackBar(context, 'Signup Successful', title: 'Success');
           context.go(RouteName.loginScreen);
         }
       } else {
         if (context.mounted) {
-          Utils.showSnackBar(
+          Utils.showErrorSnackBar(
             context,
             'User already exists, please try different email!',
             title: 'Error',
@@ -189,7 +189,7 @@ class SignupController extends StateNotifier<SignupState> {
       }
     } catch (e) {
       if (context.mounted) {
-        Utils.showSnackBar(
+        Utils.showErrorSnackBar(
           context,
           'User already exists, please try different email!',
           title: 'Error',

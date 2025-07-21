@@ -96,13 +96,13 @@ class LoginController extends StateNotifier<LoginState> {
       // ✅ SAFELY show snackbar and navigate using a microtask
       Future.microtask(() {
         if (context.mounted) {
-          Utils.showSnackBar(context, 'Login Successfully', title: 'Login');
+          Utils.showSuccessSnackBar(context, 'Login Successfully', title: 'Login');
           context.push(RouteName.dashboardScreen);
         }
       });
     } catch (error) {
       if (context.mounted) {
-        Utils.showSnackBar(
+        Utils.showErrorSnackBar(
           context,
           'Invalid email or password, please try again!',
           title: 'Failed to Login',
