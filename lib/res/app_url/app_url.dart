@@ -8,4 +8,5 @@ class AppUrl {
   static final loginApi = 'api/auth/user/login';
   static final registerApi = 'api/auth/user/register';
   static final markersApi = 'api/markers/all';
+  static final polygonsApi = 'api/polygons/geojson';
 }

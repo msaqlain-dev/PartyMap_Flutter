@@ -9,7 +9,6 @@ import 'package:partymap_app/utils/responsive_size_util.dart';
 // TODO: Add your Mapbox access token here or use --dart-define
 // const String accessToken = 'YOUR_MAPBOX_ACCESS_TOKEN_HERE';
 
-
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
